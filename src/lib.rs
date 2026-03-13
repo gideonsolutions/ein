@@ -18,6 +18,9 @@ use core::str::FromStr;
 
 use regex::Regex;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
 /// Matches EIN in format XX-XXXXXXX or XXXXXXXXX (9 consecutive digits).
 static EIN_PATTERN: &str = r"^(\d{2})-(\d{7})$|^(\d{9})$";
 
@@ -37,7 +40,7 @@ const INVALID_PREFIXES: [u8; 17] = [
 ///
 /// The prefix must be a valid IRS-assigned prefix. Invalid prefixes include:
 /// 00, 07, 08, 09, 17, 18, 19, 28, 29, 49, 69, 70, 78, 79, 89, 96, 97.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Ein {
     prefix: u8,
     serial: u32,
@@ -124,6 +127,21 @@ impl fmt::Display for Ein {
 impl fmt::Debug for Ein {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Ein({:02}-XXXXXXX)", self.prefix)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for Ein {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for Ein {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        s.parse().map_err(serde::de::Error::custom)
     }
 }
 
@@ -366,5 +384,53 @@ mod tests {
     fn debug_pads_prefix() {
         let ein = Ein::new(1, 0).unwrap();
         assert_eq!(format!("{ein:?}"), "Ein(01-XXXXXXX)");
+    }
+
+    // --- Copy ---
+
+    #[test]
+    fn ein_is_copy() {
+        let a = Ein::new(12, 3_456_789).unwrap();
+        let b = a; // copy
+        assert_eq!(a, b);
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod serde_tests {
+    use super::*;
+
+    #[test]
+    fn serialize_to_string() {
+        let ein: Ein = "12-3456789".parse().unwrap();
+        let json = serde_json::to_string(&ein).unwrap();
+        assert_eq!(json, "\"12-3456789\"");
+    }
+
+    #[test]
+    fn deserialize_with_dash() {
+        let ein: Ein = serde_json::from_str("\"12-3456789\"").unwrap();
+        assert_eq!(ein.prefix(), 12);
+        assert_eq!(ein.serial(), 3_456_789);
+    }
+
+    #[test]
+    fn deserialize_without_dash() {
+        let ein: Ein = serde_json::from_str("\"123456789\"").unwrap();
+        assert_eq!(ein.to_string(), "12-3456789");
+    }
+
+    #[test]
+    fn deserialize_invalid_prefix() {
+        let result = serde_json::from_str::<Ein>("\"00-1234567\"");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn roundtrip() {
+        let ein: Ein = "55-1234567".parse().unwrap();
+        let json = serde_json::to_string(&ein).unwrap();
+        let back: Ein = serde_json::from_str(&json).unwrap();
+        assert_eq!(ein, back);
     }
 }
