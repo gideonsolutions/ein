@@ -1,6 +1,6 @@
 [package]
 name = "ein"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "Apache-2.0"
 description = "U.S. Employer Identification Number (EIN) parsing and validation"
@@ -9,6 +9,14 @@ keywords = ["ein", "employer-id", "tax", "validation"]
 categories = ["parsing", "value-formatting"]
 documentation = "https://docs.rs/ein"
 
+[features]
+default = []
+serde = ["dep:serde"]
+
 [dependencies]
 regex = "1"
+serde = { version = "1", features = ["derive"], optional = true }
 thiserror = "2"
+
+[dev-dependencies]
+serde_json = "1"
