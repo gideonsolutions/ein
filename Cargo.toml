@@ -9,6 +9,9 @@ keywords = ["ein", "employer-id", "tax", "validation"]
 categories = ["parsing", "value-formatting"]
 documentation = "https://docs.rs/ein"
 
+[package.metadata.cargo-udeps.ignore]
+development = ["serde_json"]
+
 [features]
 default = []
 serde = ["dep:serde"]
@@ -20,6 +23,3 @@ thiserror = "2"
 
 [dev-dependencies]
 serde_json = "1"
-
-[package.metadata.cargo-udeps.ignore]
-development = ["serde_json"]
